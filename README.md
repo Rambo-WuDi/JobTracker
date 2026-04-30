@@ -20,7 +20,7 @@ JobTracker是一款 Chrome 扩展程序：当你在浏览招聘网站详情页�
 将此github发给你的Agent（Claude Code、Codex等），并告诉它“安装此插件”：
 (https://github.com/Rambo-WuDi/JobTracker)
 
-###手动安装
+### 手动安装
 
 1. 打开 `chrome://extensions/`。
 2. 开启右上角「开发者模式」。
