@@ -1348,16 +1348,15 @@ async function chooseNotebookForExport() {
   renderNotebookPicker([], '没有读取到 Notebook 列表。请确认已登录 NotebookLM。');
 }
 
-els.addBatch.addEventListener('click', async () => {
-  const state = await loadState();
+async function promptCreateBatch(state, message = '') {
   const name = normalize(await openModal({
     title: '新建批次',
+    message,
     placeholder: '输入批次名称，如：AI产品经理',
     confirmText: '创建'
   }));
   if (!name) {
-    setStatus('已取消新建批次。');
-    return;
+    return null;
   }
 
   const batch = createBatch(name);
@@ -1366,18 +1365,30 @@ els.addBatch.addEventListener('click', async () => {
   await saveState(state);
   render(state);
   setStatus(`已新增批次 ${batch.name}。`);
+  return batch;
+}
+
+els.addBatch.addEventListener('click', async () => {
+  const state = await loadState();
+  const batch = await promptCreateBatch(state);
+  if (!batch) {
+    setStatus('已取消新建批次。');
+  }
 });
 
 els.clipCurrent.addEventListener('click', async () => {
-  setBusy(true);
   try {
     const state = await loadState();
-    const batch = activeBatch(state);
+    let batch = activeBatch(state);
     if (!batch) {
-      setStatus('请先新建批次。');
-      return;
+      batch = await promptCreateBatch(state, '请先新建批次后再导入');
+      if (!batch) {
+        setStatus('已取消新建批次。');
+        return;
+      }
     }
 
+    setBusy(true);
     setStatus('正在读取当前页面...');
     const job = await scrapeCurrentTab();
     const capturedJob = sanitizeJob(job);
