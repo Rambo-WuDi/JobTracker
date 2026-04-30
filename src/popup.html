@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JobTracker</title>
+    <link rel="stylesheet" href="./popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div class="top-row">
+          <div class="brand">
+            <img class="brand-icon" src="./icon-128.png" alt="" aria-hidden="true">
+            <h1>JobTracker</h1>
+          </div>
+          <div class="header-meta">
+            <span class="version-badge">BETA</span>
+            <div class="stats" aria-label="Job stats">
+              <div>
+                <strong id="savedCount">0</strong>
+                <span>已保存</span>
+              </div>
+              <div>
+                <strong id="batchCount">0</strong>
+                <span>批次</span>
+              </div>
+              <div>
+                <strong id="todayCount">0</strong>
+                <span>今日新增</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="batch-strip" aria-label="Batches">
+        <div class="batch-label">批次管理</div>
+        <div class="batch-row">
+          <div id="batches" class="batches"></div>
+          <button id="addBatch" class="round-button" type="button" aria-label="新增批次">+</button>
+        </div>
+      </section>
+
+      <section class="tools" aria-label="Job actions">
+        <button id="clipCurrent" class="capture-button" type="button">
+          <span class="button-icon" aria-hidden="true">
+            <svg viewBox="0 0 16 16" focusable="false">
+              <path d="M5.2 6.7V2.9a1.1 1.1 0 0 1 2.2 0v3.5" />
+              <path d="M7.4 6.4V2.2a1.1 1.1 0 0 1 2.2 0v4.2" />
+              <path d="M9.6 6.7V3.4a1.1 1.1 0 0 1 2.2 0v5.1" />
+              <path d="M5.2 8.2 4.1 7.1a1.1 1.1 0 0 0-1.6 1.5l3.1 3.5c.7.8 1.8 1.3 2.9 1.3h.9c2.1 0 3.8-1.7 3.8-3.8V6.8a1.1 1.1 0 0 0-2.2 0" />
+            </svg>
+          </span>
+          抓取当前岗位
+        </button>
+        <div class="tool-row">
+          <div class="tool-left">
+            <label class="option-toggle">
+              <input id="mergeDownload" type="checkbox">
+              <span>合并</span>
+            </label>
+            <button id="copyMarkdown" class="ghost icon-button" type="button">
+              <span class="button-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" focusable="false">
+                  <path d="M8 2v8" />
+                  <path d="M4.8 7.2 8 10.5l3.2-3.3" />
+                  <path d="M3 13.5h10" />
+                </svg>
+              </span>
+              .md
+            </button>
+            <button id="downloadCsv" class="ghost icon-button" type="button">
+              <span class="button-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" focusable="false">
+                  <path d="M8 2v8" />
+                  <path d="M4.8 7.2 8 10.5l3.2-3.3" />
+                  <path d="M3 13.5h10" />
+                </svg>
+              </span>
+              .csv
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="content" aria-label="Clipped jobs">
+        <div id="listActions" class="list-actions" aria-label="Selection actions" hidden>
+          <label>
+            <input id="selectAllJobs" type="checkbox">
+            <span>全选</span>
+          </label>
+          <button id="clearBatch" class="ghost danger" type="button">
+            <span class="button-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="M2.5 4h11" />
+                <path d="M5.5 4V2.5h5V4" />
+                <path d="M4 4.5 4.8 13h6.4l.8-8.5" />
+                <path d="M6.6 7v3.5" />
+                <path d="M9.4 7v3.5" />
+              </svg>
+            </span>
+            清空
+          </button>
+        </div>
+        <div id="emptyState" class="empty">
+          <div class="empty-icon" aria-hidden="true">📋</div>
+          <p id="emptyText">请先新建批次</p>
+        </div>
+        <div id="jobs"></div>
+      </section>
+
+      <footer class="footer">
+        <div class="notebook-export">
+          <button id="exportNotebookLM" class="primary export-trigger" type="button" aria-expanded="false">
+            <img class="notebook-logo" src="./notebooklm-logo.svg" alt="" aria-hidden="true">
+            导出到 NotebookLM
+          </button>
+          <div id="notebookMenu" class="notebook-menu" hidden>
+            <button id="exportNewNotebook" type="button">
+              <span class="notebook-menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" focusable="false">
+                  <circle cx="8" cy="8" r="6.2" />
+                  <path d="M8 5v6" />
+                  <path d="M5 8h6" />
+                </svg>
+              </span>
+              新建 Notebook
+            </button>
+            <button id="exportExistingNotebook" type="button">
+              <span class="notebook-menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" focusable="false">
+                  <path d="M4 2.5h8a1 1 0 0 1 1 1v10l-5-2.6-5 2.6v-10a1 1 0 0 1 1-1Z" />
+                </svg>
+              </span>
+              读取 Notebook
+            </button>
+          </div>
+        </div>
+        <p id="status" class="status" role="status"></p>
+      </footer>
+    </main>
+
+    <div id="modalBackdrop" class="modal-backdrop" hidden>
+      <form id="batchModal" class="batch-modal" novalidate>
+        <h2 id="modalTitle">新建批次</h2>
+        <p id="modalMessage" class="modal-message" hidden></p>
+        <input id="modalInput" class="modal-input" type="text" autocomplete="off">
+        <div class="modal-actions">
+          <button id="modalCancel" class="modal-button secondary" type="button">取消</button>
+          <button id="modalConfirm" class="modal-button confirm" type="submit">创建</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="notebookPickerBackdrop" class="modal-backdrop" hidden>
+      <section class="batch-modal notebook-picker" aria-labelledby="notebookPickerTitle">
+        <div class="notebook-picker-head">
+          <h2 id="notebookPickerTitle">选择 Notebook</h2>
+          <button id="notebookPickerCancel" class="notebook-picker-close" type="button" aria-label="关闭">×</button>
+        </div>
+        <p id="notebookPickerMessage" class="modal-message"></p>
+        <div id="notebookPickerList" class="notebook-picker-list"></div>
+      </section>
+    </div>
+
+    <script src="./popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+._*
+
+# Editor and IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and debug output
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+
+# Chrome extension packages
+*.crx
+*.pem
+*.zip
+
+# Local backups and temporary files
+*.bak
+*.backup
+*.tmp
+*.temp
+*.old
+*backup*
+
+# Local environment files
+.env
+.env.*
+
+# Personal screenshots and exports
+CleanShot*
+*.csv
+*.md.zip

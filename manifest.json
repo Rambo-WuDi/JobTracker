@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "JobTracker",
+  "description": "Clip job postings from recruiting sites and export NotebookLM-ready research packs.",
+  "version": "0.1.0",
+  "icons": {
+    "16": "src/icon-16.png",
+    "32": "src/icon-32.png",
+    "48": "src/icon-48.png",
+    "128": "src/icon-128.png"
+  },
+  "action": {
+    "default_title": "JobTracker",
+    "default_icon": {
+      "16": "src/icon-16.png",
+      "32": "src/icon-32.png",
+      "48": "src/icon-48.png",
+      "128": "src/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "side_panel": {
+    "default_path": "src/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://notebooklm.google.com/*"],
+      "js": ["src/notebooklm-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["activeTab", "scripting", "storage", "downloads", "clipboardWrite", "sidePanel", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"]
+}
