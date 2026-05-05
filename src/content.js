@@ -58,22 +58,63 @@
 
   const REQUIREMENT_HEADINGS = ruleList('headings.requirements', [
     '任职要求',
+    '任職要求',
+    '任职资格',
+    '任職資格',
     '岗位要求',
+    '職位要求',
     '职位要求',
     '能力要求',
+    '資格要求',
+    '基本要求',
+    '必備條件',
     'Requirements',
     'Qualifications',
+    'Basic Qualifications',
+    'Preferred Qualifications',
+    'Minimum Qualifications',
+    'Required Qualifications',
+    'Desired Qualifications',
+    'Required skills',
+    'Preferred skills',
+    'Must have',
     'What you bring',
+    'What we look for',
+    "What you'll need",
+    'What you’ll need',
+    'What you need',
+    'Who you are',
+    'About you',
     'Skills'
   ]);
 
   const RESPONSIBILITY_HEADINGS = ruleList('headings.responsibilities', [
     '岗位职责',
+    '崗位職責',
+    '主要职责',
+    '主要職責',
     '工作职责',
+    '工作職責',
+    '工作内容',
+    '工作內容',
     '职位描述',
+    '職位描述',
     'Responsibilities',
+    'Key Responsibilities',
+    'Role Responsibilities',
+    'Responsibilities and duties',
     'What you will do',
+    "What you'll do",
+    'What you’ll do',
+    "What you'll be doing",
+    'What you’ll be doing',
+    'What you do',
+    'In this role',
+    'Your responsibilities',
+    'You will',
     'About the role',
+    'The role',
+    'About the job',
     'Job description'
   ]);
 
@@ -85,11 +126,25 @@
       '职位亮点',
       '公司介绍',
       '工作地点',
+      '工作地點',
       '招聘流程',
+      '招募流程',
+      '需要考虑的事项',
+      '需要考慮的事項',
       'Benefits',
       'About company',
+      'About the company',
       'Location',
-      'Recruitment process'
+      'Recruitment process',
+      'Similar jobs',
+      'People also viewed',
+      'Meet the hiring team',
+      'How you match',
+      'Applicants',
+      'Seniority level',
+      'Employment type',
+      'Job function',
+      'Industries'
     ])
   ];
 
@@ -100,6 +155,16 @@
     /^(相似职位|推荐职位|热门职位|为你推荐|看过该职位的人|职位竞争力|公司其他职位)/,
     /^(上一页|下一页|查看更多|展开全部|收起|刷新|复制链接)$/i,
     /^(广告|推广|置顶|急招|最新)$/i,
+    /^(Easy Apply|Apply|Save|Share|Follow|Message|Report this job)$/i,
+    /^(Show more|Show less|See more|See less|View job)$/i,
+    /^(Similar jobs|People also viewed|Meet the hiring team|About the company)$/i,
+    /^(Seniority level|Employment type|Job function|Industries)$/i,
+    /^(No longer accepting applications|Promoted|Actively recruiting)$/i,
+    /^See who .+ has hired/i,
+    /^Be among the first/i,
+    /^Posted .+ ago/i,
+    /^\d+\s+applicants?$/i,
+    /^\d+.*followers$/i,
     /(cookie|privacy|terms of use|all rights reserved|copyright)/i,
     /^(©|\(c\)|Copyright)/i
   ]);
@@ -109,6 +174,7 @@
     /^BOSS直聘严禁/,
     /^(招聘负责人|竞争力分析)$/,
     /^(工作地址|职位发布者:?|拉勾安全提示|面试评价|推荐公司：?|职场百科：?)/,
+    /^(Similar jobs|People also viewed|Meet the hiring team|About the company)$/i,
     /^如遇岗位要求海外工作/
   ];
 
@@ -126,8 +192,12 @@
     '经验',
     '薪资',
     'Responsibilities',
+    'About the job',
+    'About the role',
     'Requirements',
     'Qualifications',
+    'Basic Qualifications',
+    'Preferred Qualifications',
     'Experience',
     'Salary'
   ]);
@@ -144,6 +214,14 @@
       .replace(/\n{3,}/g, '\n\n')
       .replace(/[ \t]{2,}/g, ' ')
       .trim();
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function isLinkedIn() {
+    return /(^|\.)linkedin\.com$/i.test(window.location.hostname);
   }
 
   function cleanCapturedText(text, maxLength = 12000) {
@@ -273,6 +351,9 @@
   }
 
   function companyFromLinks() {
+    const linkedInCompany = companyFromLinkedInInfo();
+    if (linkedInCompany) return linkedInCompany;
+
     const lagouCompany = companyFromLagouInfo();
     if (lagouCompany) return lagouCompany;
 
@@ -293,6 +374,47 @@
           .filter(Boolean);
         const match = candidates.find(isValidCompanyText);
         if (match) return match;
+      }
+    }
+
+    return '';
+  }
+
+  function companyFromLinkedInInfo() {
+    if (!isLinkedIn()) return '';
+
+    const selectors = [
+      '.job-details-jobs-unified-top-card__company-name a',
+      '.jobs-unified-top-card__company-name a',
+      '.topcard__org-name-link',
+      'a[href*="/company/"]'
+    ];
+
+    for (const selector of selectors) {
+      const candidates = Array.from(document.querySelectorAll(selector))
+        .map(textOf)
+        .flatMap((value) => value.split('\n'))
+        .map((line) => normalizeLinkedInCompanyText(line))
+        .filter(isValidLinkedInCompanyText);
+      if (candidates[0]) return candidates[0];
+    }
+
+    const sources = [
+      document.querySelector('meta[property="og:title"]')?.content || '',
+      document.querySelector('meta[name="description"]')?.content || '',
+      document.title
+    ];
+    const patterns = [
+      /\bat\s+(.+?)\s*\|\s*LinkedIn/i,
+      /^(.+?)\s+is hiring/i,
+      /[-–]\s*([^|]+?)\s*\|\s*LinkedIn/i
+    ];
+
+    for (const source of sources) {
+      const text = normalize(source);
+      for (const pattern of patterns) {
+        const company = normalizeLinkedInCompanyText(text.match(pattern)?.[1] || '');
+        if (isValidLinkedInCompanyText(company)) return company;
       }
     }
 
@@ -589,6 +711,9 @@
   }
 
   function collectMainText() {
+    const linkedInText = mainTextFromLinkedIn();
+    if (linkedInText) return linkedInText;
+
     const candidates = Array.from(document.querySelectorAll(TEXT_SELECTORS.join(',')))
       .map((node) => ({
         node,
@@ -599,6 +724,163 @@
 
     const best = candidates.find((item) => containsJobSignal(item.text)) || candidates[0];
     return best ? best.text : normalize(document.body.innerText || '');
+  }
+
+  function mainTextFromLinkedIn() {
+    if (!isLinkedIn()) return '';
+
+    const selectors = [
+      '.jobs-description__content',
+      '.jobs-box__html-content',
+      '.jobs-description-content__text',
+      '.jobs-description',
+      '.show-more-less-html__markup',
+      '#job-details',
+      '[class*="jobs-description"]'
+    ];
+    const candidates = Array.from(document.querySelectorAll(selectors.join(',')))
+      .map((node) => textFromLinkedInDescription(node))
+      .filter((text) => text.length > 80)
+      .sort((a, b) => b.length - a.length);
+
+    return candidates[0] || '';
+  }
+
+  function textFromLinkedInDescription(node) {
+    const lines = [];
+    collectLinkedInDescriptionLines(node, lines);
+
+    const structured = normalize(lines.join('\n'));
+    if (structured.length > 80) return structured;
+
+    return textOf(node);
+  }
+
+  function collectLinkedInDescriptionLines(node, lines) {
+    if (!node) return;
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = normalize(node.textContent || '');
+      if (text) pushLinkedInLine(lines, text);
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'script' || tag === 'style' || tag === 'button') return;
+
+    if (tag === 'li') {
+      const itemText = textOf(node).replace(/^\s*[•●▪◦*+-]\s+/, '');
+      if (itemText) pushLinkedInLine(lines, `• ${itemText}`);
+      return;
+    }
+
+    if (/^(h1|h2|h3|h4|h5|h6|p|div|section|article|br)$/.test(tag)) {
+      const beforeLength = lines.length;
+      Array.from(node.childNodes).forEach((child) => collectLinkedInDescriptionLines(child, lines));
+      if (tag === 'br' || (lines.length > beforeLength && lines[lines.length - 1] !== '')) {
+        lines.push('');
+      }
+      return;
+    }
+
+    Array.from(node.childNodes).forEach((child) => collectLinkedInDescriptionLines(child, lines));
+  }
+
+  function pushLinkedInLine(lines, text) {
+    const value = normalize(text);
+    if (!value) return;
+    if (lines[lines.length - 1] === value) return;
+    lines.push(value);
+  }
+
+  async function expandLinkedInDescription() {
+    if (!isLinkedIn()) return false;
+
+    let expanded = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const button = findLinkedInMoreButton();
+      if (!button) break;
+
+      button.click();
+      expanded = true;
+      await wait(400);
+    }
+
+    return expanded;
+  }
+
+  function findLinkedInMoreButton() {
+    const roots = linkedInDescriptionRoots();
+
+    const selectors = [
+      '.jobs-description__footer-button',
+      '.show-more-less-html__button--more',
+      'button[aria-expanded="false"]',
+      'button[aria-label*="more" i]',
+      'button[aria-label*="see more" i]',
+      'button'
+    ];
+
+    for (const root of roots) {
+      const buttons = Array.from(root.querySelectorAll(selectors.join(',')));
+      const match = buttons.find(isLinkedInMoreButton);
+      if (match) return match;
+    }
+
+    return null;
+  }
+
+  function linkedInDescriptionRoots() {
+    const explicitRoots = [
+      document.querySelector('.jobs-description'),
+      document.querySelector('.jobs-description__content'),
+      document.querySelector('#job-details')?.closest('section'),
+      document.querySelector('[class*="jobs-description"]')
+    ].filter(Boolean);
+
+    if (explicitRoots.length) return uniqueElements(explicitRoots);
+
+    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4'))
+      .filter((node) => /^About the job$/i.test(normalize(node.innerText || node.textContent || '')));
+    return uniqueElements(headings.map((heading) => closestDescriptionContainer(heading)).filter(Boolean));
+  }
+
+  function closestDescriptionContainer(node) {
+    let current = node;
+    for (let depth = 0; current && depth < 8; depth += 1) {
+      const text = textOf(current);
+      if (text.includes('About the job') && text.length > 120) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  function uniqueElements(elements) {
+    return Array.from(new Set(elements));
+  }
+
+  function isLinkedInMoreButton(button) {
+    if (!button || !isVisible(button)) return false;
+
+    const label = normalize([
+      button.innerText || '',
+      button.textContent || '',
+      button.getAttribute('aria-label') || ''
+    ].join(' '));
+    if (!label) return false;
+    if (/show less|see less|收起/i.test(label)) return false;
+    if (/for business|business|premium|similar jobs|people also viewed|all jobs|更多职位|相似职位/i.test(label)) return false;
+
+    const isExpanded = button.getAttribute('aria-expanded');
+    return isExpanded === 'false' || /\b(show more|see more|more)\b|展开|更多/i.test(label);
+  }
+
+  function isVisible(element) {
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
   }
 
   function containsJobSignal(text) {
@@ -617,6 +899,9 @@
   }
 
   function locationFromPage(fullText) {
+    const linkedInLocation = locationFromLinkedIn();
+    if (linkedInLocation) return linkedInLocation;
+
     if (/liepin\.com$/i.test(window.location.hostname) || /(^|\.)liepin\.com$/i.test(window.location.hostname)) {
       const liepinLocation = locationFromLiepin(fullText);
       if (liepinLocation) return liepinLocation;
@@ -624,6 +909,35 @@
 
     const explicitLocation = firstCleanText(LOCATION_SELECTORS, isValidLocationText);
     return explicitLocation ? normalizeLocation(explicitLocation) : '';
+  }
+
+  function locationFromLinkedIn() {
+    if (!isLinkedIn()) return '';
+
+    const selectors = [
+      '.job-details-jobs-unified-top-card__primary-description-container',
+      '.jobs-unified-top-card__primary-description',
+      '.jobs-unified-top-card__bullet',
+      '.job-details-jobs-unified-top-card__bullet',
+      '.topcard__flavor--bullet'
+    ];
+
+    for (const selector of selectors) {
+      const candidates = Array.from(document.querySelectorAll(selector))
+        .map(textOf)
+        .flatMap((value) => value.split(/[\n·•|｜]/))
+        .map((line) => normalizeLocation(line))
+        .filter(isValidLocationText);
+      if (candidates[0]) return candidates[0];
+    }
+
+    const metaText = [
+      document.querySelector('meta[property="og:description"]')?.content || '',
+      document.querySelector('meta[name="description"]')?.content || '',
+      document.title
+    ].join('\n');
+
+    return locationFromText(metaText);
   }
 
   function locationFromLiepin(fullText) {
@@ -659,25 +973,37 @@
   function normalizeLocation(text) {
     const value = normalize(text)
       .replace(/^(工作地点|地点|城市|工作城市|办公地点|所在城市)\s*[:：]\s*/i, '')
-      .replace(/\s+/g, '');
+      .replace(/^(location)\s*[:：]\s*/i, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([,，|｜·])\s*/g, '$1')
+      .trim();
     const cityMatch = value.match(/北京|上海|广州|深圳|杭州|成都|南京|苏州|武汉|西安|长沙|重庆|天津|宁波|无锡|佛山|东莞|郑州|合肥|厦门|青岛|济南|福州|珠海|大连|沈阳|昆明|南昌|南宁|贵阳|太原|石家庄|哈尔滨|长春|海口|兰州|呼和浩特|乌鲁木齐|全国/);
-    return cityMatch ? cityMatch[0] : value;
+    return cityMatch ? cityMatch[0] : value.replace(/[，|｜·]/g, ', ');
   }
 
   function isValidLocationText(text) {
     const value = normalizeLocation(text);
-    if (!value || value.length > 20) return false;
+    if (!value || value.length > 80) return false;
     if (/职位|岗位|招聘|薪|经验|学历|本科|硕士|博士|统招|全职|兼职|公司|猎聘|首页|登录|注册/.test(value)) {
       return false;
     }
-    return /^(北京|上海|广州|深圳|杭州|成都|南京|苏州|武汉|西安|长沙|重庆|天津|宁波|无锡|佛山|东莞|郑州|合肥|厦门|青岛|济南|福州|珠海|大连|沈阳|昆明|南昌|南宁|贵阳|太原|石家庄|哈尔滨|长春|海口|兰州|呼和浩特|乌鲁木齐|全国)$/.test(value);
+    if (/applicants?|followers?|connections?|hired|promoted|posted|apply|save|share|full-?time|part-?time|seniority|employment type|job function|industries/i.test(value)) {
+      return false;
+    }
+    if (/^(北京|上海|广州|深圳|杭州|成都|南京|苏州|武汉|西安|长沙|重庆|天津|宁波|无锡|佛山|东莞|郑州|合肥|厦门|青岛|济南|福州|珠海|大连|沈阳|昆明|南昌|南宁|贵阳|太原|石家庄|哈尔滨|长春|海口|兰州|呼和浩特|乌鲁木齐|全国)$/.test(value)) {
+      return true;
+    }
+    return /[a-z]/i.test(value) && (
+      /\b(Remote|Hybrid|On-site|United States|USA|Canada|Singapore|London|New York|San Francisco|California|United Kingdom|India|Germany|Australia)\b/i.test(value) ||
+      /\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s?[A-Z]{2}\b/.test(value) ||
+      /\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s?[A-Z][a-z]+/.test(value)
+    );
   }
 
   function extractSection(text, headings, stopHeadings = []) {
     const lines = cleanCapturedText(text, 9000).split('\n').map((line) => line.trim()).filter(Boolean);
-    const start = lines.findIndex((line) =>
-      headings.some((heading) => line.toLowerCase().includes(heading.toLowerCase()))
-    );
+    const sectionType = headings === RESPONSIBILITY_HEADINGS ? 'responsibilities' : headings === REQUIREMENT_HEADINGS ? 'requirements' : '';
+    const start = findSectionStart(lines, headings, sectionType);
 
     if (start === -1) return '';
 
@@ -694,14 +1020,108 @@
       if (result.join('\n').length > 1800) break;
     }
 
-    return stripLeadingHeading(normalize(result.join('\n')), headings);
+    const stripped = stripLeadingHeading(normalize(result.join('\n')), headings);
+    return formatSectionItems(stripped, sectionType);
+  }
+
+  function findSectionStart(lines, headings, sectionType = '') {
+    const strongStart = lines.findIndex((line) => matchesStrongSectionHeading(line, sectionType));
+    if (strongStart >= 0) return strongStart;
+
+    const preferredHeadings = headings.filter((heading) => !isBroadDescriptionHeading(heading));
+    const preferredStart = findHeadingIndex(lines, preferredHeadings);
+    if (preferredStart >= 0) return preferredStart;
+
+    return isLinkedIn() ? -1 : findHeadingIndex(lines, headings);
+  }
+
+  function findHeadingIndex(lines, headings) {
+    return lines.findIndex((line) =>
+      headings.some((heading) => headingMatchesLine(line, heading))
+    );
+  }
+
+  function headingMatchesLine(line, heading) {
+    if (!isLikelySectionHeadingLine(line)) return false;
+
+    const value = normalizeHeading(line);
+    const target = normalizeHeading(heading);
+    if (!value || !target) return false;
+    if (isBroadDescriptionHeading(heading)) return false;
+    if (value === target || value.startsWith(`${target}:`) || value.startsWith(`${target}：`)) return true;
+    if (target.length >= 8 && value.includes(target)) return true;
+    return false;
+  }
+
+  function normalizeHeading(text) {
+    return normalize(text)
+      .replace(/[：:]\s*$/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function isBroadDescriptionHeading(heading) {
+    return /^(about the job|about the role|the role|job description|职位描述|職位描述|职位信息)$/i.test(normalizeHeading(heading));
+  }
+
+  function matchesStrongSectionHeading(line, sectionType) {
+    const value = normalize(line).replace(/[：:]\s*$/, '').trim();
+    if (!isLikelySectionHeadingLine(value)) return false;
+
+    if (sectionType === 'responsibilities') {
+      return /职责|職責|工作内容|工作內容|责任|責任|responsibilit|duties|what\s+you(?:'|’)?ll\s+(?:do|be\s+doing)|what\s+you\s+(?:will\s+do|do)|in\s+this\s+role|your\s+role|you\s+will/i.test(value) &&
+        !/requirements?|qualifications?|任职|任職|资格|資格|要求|skills?/i.test(value);
+    }
+
+    if (sectionType === 'requirements') {
+      return /任职|任職|资格|資格|要求|條件|条件|基本要求|必備|必备|requirements?|qualifications?|skills?|must\s+have|what\s+you\s+bring|what\s+we\s+look\s+for|what\s+you(?:'|’)?ll\s+need|what\s+you\s+need|who\s+you\s+are|you\s+have|preferred|minimum|required/i.test(value);
+    }
+
+    return false;
+  }
+
+  function isLikelySectionHeadingLine(line) {
+    const value = normalize(line);
+    if (!value || value.length > 80) return false;
+    if (hasListMarker(value)) return false;
+    if (/[,，;；]/.test(value) && value.length > 28) return false;
+    if (/[。.!?？]$/.test(value) && value.length > 24) return false;
+    return true;
+  }
+
+  function hasListMarker(line) {
+    return /^\s*(?:[•●▪◦*+-]|\d+[.)、]|[a-z][.)])\s+/i.test(line);
+  }
+
+  function formatSectionItems(text, sectionType) {
+    if (!text || !isLinkedIn() || !/^(responsibilities|requirements)$/.test(sectionType)) {
+      return text;
+    }
+
+    const lines = text.split('\n').map((line) => normalize(line)).filter(Boolean);
+    const formatted = lines.map((line) => {
+      if (hasListMarker(line)) return line.replace(/^\s*(?:[•●▪◦*+-]|\d+[.)、]|[a-z][.)])\s+/i, '• ');
+      if (isNestedSectionHeading(line, sectionType)) return line;
+      return `• ${line}`;
+    });
+
+    return normalize(formatted.join('\n'));
+  }
+
+  function isNestedSectionHeading(line, sectionType) {
+    if (!isLikelySectionHeadingLine(line)) return false;
+    if (sectionType === 'requirements') {
+      return matchesStrongSectionHeading(line, 'requirements');
+    }
+    return matchesStrongSectionHeading(line, 'responsibilities');
   }
 
   function stripLeadingHeading(text, headings) {
     const lines = text.split('\n');
     while (
       lines.length &&
-      headings.some((heading) => lines[0].trim().toLowerCase() === heading.toLowerCase())
+      headings.some((heading) => headingMatchesLine(lines[0], heading) || normalizeHeading(lines[0]) === normalizeHeading(heading))
     ) {
       lines.shift();
     }
@@ -710,15 +1130,18 @@
 
   function isHeading(line, headings) {
     if (line.length > 42) return false;
-    return headings.some((heading) => line.toLowerCase().includes(heading.toLowerCase()));
+    return headings.some((heading) => headingMatchesLine(line, heading));
   }
 
   function looksLikeNewSection(line) {
     if (line.length > 36) return false;
-    return /^(福利|亮点|地点|薪资|公司|关于|流程|联系方式|About|Benefits|Location|Compensation|Company|Apply|申请)/i.test(line);
+    return /^(福利|亮点|地点|薪资|公司|关于|流程|联系方式|About|Benefits|Location|Compensation|Company|Apply|申请|Similar jobs|People also viewed|Meet the hiring team|How you match|Applicants|Seniority level|Employment type|Job function|Industries)/i.test(line);
   }
 
   function titleFromPage() {
+    const linkedInTitle = titleFromLinkedIn();
+    if (linkedInTitle) return linkedInTitle;
+
     const h1 = firstText(TITLE_SELECTORS);
     if (h1) return h1;
 
@@ -726,6 +1149,31 @@
     if (ogTitle) return normalize(ogTitle.split('|')[0].split('-')[0]);
 
     return normalize(document.title.split('|')[0].split('-')[0]);
+  }
+
+  function titleFromLinkedIn() {
+    if (!isLinkedIn()) return '';
+
+    const selectors = [
+      '.job-details-jobs-unified-top-card__job-title',
+      '.jobs-unified-top-card__job-title',
+      '.top-card-layout__title',
+      'h1'
+    ];
+    const fromDom = firstText(selectors);
+    if (fromDom) return fromDom;
+
+    const sources = [
+      document.querySelector('meta[property="og:title"]')?.content || '',
+      document.title
+    ];
+    for (const source of sources) {
+      const text = normalize(source).replace(/\s*\|\s*LinkedIn.*$/i, '');
+      const title = normalize(text.split(/\s+at\s+/i)[0].split(/\s[-–]\s/)[0]);
+      if (title && title.length <= 120) return title;
+    }
+
+    return '';
   }
 
   function companyFromPageTitle() {
@@ -754,6 +1202,13 @@
     return normalize(text)
       .replace(/^(公司名称|公司名|企业名称|公司)\s*[:：]\s*/i, '')
       .replace(/\s+/g, '')
+      .trim();
+  }
+
+  function normalizeLinkedInCompanyText(text) {
+    return normalize(text)
+      .replace(/^(company|公司)\s*[:：]\s*/i, '')
+      .replace(/\s+/g, ' ')
       .trim();
   }
 
@@ -792,6 +1247,19 @@
     return /[\u4e00-\u9fa5A-Za-z0-9]/.test(value);
   }
 
+  function isValidLinkedInCompanyText(text) {
+    const value = normalizeLinkedInCompanyText(text);
+    if (!value || value.length < 2 || value.length > 80) return false;
+    if (/^(LinkedIn|Jobs|Company|Apply|Save|Share|Follow|Message|Show more|Show less|Easy Apply|Report this job|Similar jobs|People also viewed|Meet the hiring team)$/i.test(value)) {
+      return false;
+    }
+    if (/followers?|connections?|applicants?|hired|promoted|posted|full-?time|part-?time|seniority|employment type|job function|industries/i.test(value)) {
+      return false;
+    }
+    if (/^https?:\/\//i.test(value) || value.includes('\n')) return false;
+    return /[\u4e00-\u9fa5A-Za-z0-9]/.test(value);
+  }
+
   function pageLanguage() {
     const htmlLang = document.documentElement.lang || '';
     if (htmlLang) return htmlLang;
@@ -808,7 +1276,9 @@
     ].filter(Boolean).join('\n');
   }
 
-  function scrapeJob() {
+  async function scrapeJob() {
+    await expandLinkedInDescription();
+
     const fullText = cleanCapturedText(collectMainText());
     const title = titleFromPage();
     const company =
@@ -848,11 +1318,9 @@
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type !== 'JOB_CLIPPER_SCRAPE') return false;
 
-      try {
-        sendResponse({ ok: true, job: window.__jobClipperScrapeJob() });
-      } catch (error) {
-        sendResponse({ ok: false, error: error?.message || 'Scrape failed' });
-      }
+      Promise.resolve(window.__jobClipperScrapeJob())
+        .then((job) => sendResponse({ ok: true, job }))
+        .catch((error) => sendResponse({ ok: false, error: error?.message || 'Scrape failed' }));
       return true;
     });
     window.__jobClipperMessageListenerAdded = true;
