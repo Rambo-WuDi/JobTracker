@@ -6,7 +6,7 @@ JobTracker is a Chrome extension for job seekers who want to collect job posting
 
 Instead of copying job descriptions into notes manually, JobTracker lets you save job details from recruiting pages, group them into batches, and export everything as Markdown or CSV for deeper analysis.
 
-[中文说明](./JobTracker_README_zh-CN.md)
+[中文说明](./README_zh-CN.md)
 
 ---
 
