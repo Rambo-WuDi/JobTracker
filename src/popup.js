@@ -6,6 +6,7 @@ const NOTEBOOKLM_URL = 'https://notebooklm.google.com/';
 
 const NOISE_PATTERNS = [
   /^(登录|注册|退出|首页|消息|我的|搜索|筛选|排序|收藏|分享|举报|反馈)$/i,
+  /微信扫码分享|扫码分享|分享\s*举报|微信.*举报/,
   /^(立即申请|申请职位|投递|立即投递|马上投递|继续沟通|立即沟通|在线沟通|联系招聘者)$/i,
   /^(打开App|下载App|扫码|微信扫一扫|使用App|在App中打开|去App查看)$/i,
   /^(相似职位|推荐职位|热门职位|为你推荐|看过该职位的人|职位竞争力|公司其他职位)/,
@@ -1459,9 +1460,9 @@ els.clearBatch.addEventListener('click', async () => {
     return;
   }
   const confirmed = await openModal({
-    title: 'Clear',
-    message: `Clear ${batch.jobs.length} job(s) from "${batch.name}"? This cannot be undone.`,
-    confirmText: 'Clear',
+    title: 'Delete jobs',
+    message: `Delete ${batch.jobs.length} job(s) from "${batch.name}"? This cannot be undone.`,
+    confirmText: 'Delete',
     showInput: false,
     danger: true
   });
@@ -1471,7 +1472,7 @@ els.clearBatch.addEventListener('click', async () => {
   batch.jobs = [];
   await saveState(state);
   render(state);
-  setStatus(`Cleared batch ${batch.name}.`);
+  setStatus(`Deleted jobs from batch ${batch.name}.`);
 });
 
 els.exportNotebookLM.addEventListener('click', () => {

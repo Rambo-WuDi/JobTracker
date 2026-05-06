@@ -150,6 +150,7 @@
 
   const NOISE_PATTERNS = ruleList('noisePatterns', [
     /^(登录|注册|退出|首页|消息|我的|搜索|筛选|排序|收藏|分享|举报|反馈)$/i,
+    /微信扫码分享|扫码分享|分享\s*举报|微信.*举报/,
     /^(立即申请|申请职位|投递|立即投递|马上投递|继续沟通|立即沟通|在线沟通|联系招聘者)$/i,
     /^(打开App|下载App|扫码|微信扫一扫|使用App|在App中打开|去App查看)$/i,
     /^(相似职位|推荐职位|热门职位|为你推荐|看过该职位的人|职位竞争力|公司其他职位)/,
@@ -222,6 +223,10 @@
 
   function isLinkedIn() {
     return /(^|\.)linkedin\.com$/i.test(window.location.hostname);
+  }
+
+  function isBossZhipin() {
+    return /(^|\.)zhipin\.com$/i.test(window.location.hostname);
   }
 
   function cleanCapturedText(text, maxLength = 12000) {
@@ -711,6 +716,9 @@
   }
 
   function collectMainText() {
+    const bossText = mainTextFromBossZhipin();
+    if (bossText) return bossText;
+
     const linkedInText = mainTextFromLinkedIn();
     if (linkedInText) return linkedInText;
 
@@ -724,6 +732,95 @@
 
     const best = candidates.find((item) => containsJobSignal(item.text)) || candidates[0];
     return best ? best.text : normalize(document.body.innerText || '');
+  }
+
+  function mainTextFromBossZhipin() {
+    if (!isBossZhipin()) return '';
+
+    const selectors = [
+      '.job-sec',
+      '.job-detail-section',
+      '.job-detail-card',
+      '.job-detail',
+      '.detail-content',
+      'section',
+      'article'
+    ];
+    const blocks = Array.from(document.querySelectorAll(selectors.join(',')))
+      .map((node) => ({
+        node,
+        text: textOf(node)
+      }))
+      .filter((item) => isBossJobDescriptionBlock(item.node, item.text))
+      .sort((a, b) => scoreBossJobBlock(b) - scoreBossJobBlock(a));
+
+    const best = blocks[0]?.text || '';
+    if (best) return truncateBossDescription(best);
+
+    return textFromBossBody();
+  }
+
+  function isBossJobDescriptionBlock(node, text) {
+    if (!text || text.length < 80 || text.length > 9000) return false;
+    if (isInsideBossNoise(node, text)) return false;
+    if (/公司简介|公司介绍|公司基本信息|工商信息|BOSS\s*安全提示|招聘者|竞争力分析|相似职位|推荐职位/.test(text)) {
+      return false;
+    }
+    return /职位描述|岗位职责|工作职责|工作内容|任职要求|任职资格|岗位要求|职位要求/.test(text);
+  }
+
+  function scoreBossJobBlock(item) {
+    const { text } = item;
+    let score = 0;
+    if (/职位描述/.test(text)) score += 8;
+    if (/岗位职责|工作职责|工作内容/.test(text)) score += 4;
+    if (/任职要求|任职资格|岗位要求|职位要求/.test(text)) score += 4;
+    if (/公司简介|公司介绍|BOSS\s*安全提示|招聘者|相似职位|推荐职位/.test(text)) score -= 20;
+    score -= Math.max(0, text.length - 3500) / 1000;
+    return score;
+  }
+
+  function isInsideBossNoise(node, text) {
+    if (/BOSS\s*安全提示|BOSS直聘严禁|招聘者|竞争力分析|相似职位|推荐职位|看过该职位的人/.test(text)) {
+      return true;
+    }
+
+    let current = node;
+    for (let depth = 0; current && depth < 5; depth += 1) {
+      const className = String(current.className || '');
+      if (/company|boss|recruit|recommend|similar|safety|secure/i.test(className)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  function truncateBossDescription(text) {
+    const lines = normalize(text)
+      .split('\n')
+      .map((line) => normalize(line))
+      .filter(Boolean);
+    const result = [];
+
+    for (const line of lines) {
+      if (result.length && isBossStopLine(line)) break;
+      if (/^职位描述$/.test(line) && result.includes(line)) continue;
+      result.push(line);
+    }
+
+    return normalize(result.join('\n'));
+  }
+
+  function isBossStopLine(line) {
+    return /^(公司简介|公司介绍|公司基本信息|工商信息|工作地址|招聘者|招聘负责人|竞争力分析|BOSS\s*安全提示|相似职位|推荐职位|看过该职位的人|举报|沟通|立即沟通|继续沟通)$/i.test(line) ||
+      /微信扫码分享|扫码分享|分享\s*举报|微信.*举报/.test(line) ||
+      /^BOSS直聘严禁/.test(line) ||
+      /损害求职者合法权益|请立即举报/.test(line);
+  }
+
+  function textFromBossBody() {
+    const bodyText = normalize(document.body.innerText || '');
+    const match = bodyText.match(/职位描述[\s\S]*?(?=\n(?:公司简介|公司介绍|公司基本信息|工商信息|工作地址|招聘者|招聘负责人|竞争力分析|BOSS\s*安全提示|相似职位|推荐职位|看过该职位的人)\n|$)/);
+    return match ? normalize(match[0]) : '';
   }
 
   function mainTextFromLinkedIn() {
