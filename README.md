@@ -34,11 +34,7 @@ A typical workflow:
 
 ## Demo
 
-> Add a screenshot or GIF here.
-
-```md
 ![JobTracker Screenshot](./src/screenshot.png)
-```
 
 ---
 

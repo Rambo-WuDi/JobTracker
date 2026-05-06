@@ -32,11 +32,7 @@ JobTracker 的目标是帮你把岗位信息变成一个结构化的求职研究
 
 ## Demo
 
-> 这里建议放截图或 GIF。
-
-```md
 ![JobTracker Screenshot](./src/screenshot.png)
-```
 
 ---
 
