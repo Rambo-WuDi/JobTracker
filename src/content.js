@@ -1268,11 +1268,11 @@
 
   function buildJobInfo({ title, company, jobLocation, salary, sourceSite }) {
     return [
-      title ? `岗位：${title}` : '',
-      company ? `公司：${company}` : '',
-      jobLocation ? `地点：${jobLocation}` : '',
-      salary ? `薪资：${salary}` : '',
-      sourceSite ? `来源站点：${sourceSite}` : ''
+      title ? `Job: ${title}` : '',
+      company ? `Company: ${company}` : '',
+      jobLocation ? `Location: ${jobLocation}` : '',
+      salary ? `Salary: ${salary}` : '',
+      sourceSite ? `Source site: ${sourceSite}` : ''
     ].filter(Boolean).join('\n');
   }
 

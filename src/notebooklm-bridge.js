@@ -64,7 +64,7 @@
     html = await response.text();
     at = extractPageValue('SNlM0e', html);
     bl = extractPageValue('cfb2h', html);
-    if (!at || !bl) throw new Error('NotebookLM 登录信息未就绪');
+    if (!at || !bl) throw new Error('NotebookLM login info is not ready.');
     return { at, bl };
   }
 
@@ -108,7 +108,7 @@
     url.searchParams.set('rpcids', rpcId);
     url.searchParams.set('source-path', '/');
     url.searchParams.set('bl', bl);
-    url.searchParams.set('hl', document.documentElement.lang || 'zh-CN');
+    url.searchParams.set('hl', document.documentElement.lang || 'en');
     url.searchParams.set('_reqid', String(Math.floor(Math.random() * 900000) + 100000));
     url.searchParams.set('rt', 'c');
 
@@ -237,7 +237,7 @@
 
   async function ensureAddSourceOpen(updateStatus) {
     if (/add_source=true/.test(location.href)) return true;
-    updateStatus('尝试打开添加来源...');
+    updateStatus('Trying to open Add source...');
     await clickByText([/^add source$/i, /add source/i, /upload source/i, /添加来源/, /新增来源/], 5000);
     await sleep(900);
     return true;
@@ -328,7 +328,7 @@
   }
 
   function fillSourceTitle(title) {
-    const cleanTitle = String(title || '岗位资料').trim();
+    const cleanTitle = String(title || 'Job source').trim();
     const selector = 'input:not([type="hidden"]):not([type="file"]), textarea, [contenteditable="true"], [role="textbox"]';
     const collectFields = (scope) => queryAllDeep(selector, scope)
       .filter(visible)
@@ -357,7 +357,7 @@
   async function tryAddCopiedTextSource(source, updateStatus) {
     await ensureAddSourceOpen(updateStatus);
 
-    updateStatus('尝试选择“复制文字/粘贴文本”来源...');
+    updateStatus('Trying to select the copied/pasted text source...');
     const selectedTextSource = await clickSourceType([
       /^copied text$/i,
       /^paste text$/i,
@@ -377,55 +377,55 @@
     if (!selectedTextSource) {
       const hasUpload = findClickableDeep([/^upload files?$/i, /^上传文件$/, /上传.*文件/]);
       updateStatus(hasUpload
-        ? '找到了上传文件入口，但没有找到“复制文字/粘贴文本”入口。'
-        : '没有找到“复制文字/粘贴文本”来源按钮。');
+        ? 'Found the upload entry, but could not find the copied/pasted text source option.'
+        : 'Could not find the copied/pasted text source button.');
       return false;
     }
 
     await sleep(1200);
-    updateStatus(`尝试粘贴来源：${source.title}`);
-    const titleFilledBeforePaste = fillSourceTitle(source.title || '岗位资料');
+    updateStatus(`Trying to paste source: ${source.title}`);
+    const titleFilledBeforePaste = fillSourceTitle(source.title || 'Job source');
     const editor = await waitForSourceEditor();
     if (!editor) {
-      updateStatus('没有找到文本来源输入框。请点“复制内容”后手动粘贴。');
+      updateStatus('Could not find the text source input. Please paste manually.');
       return false;
     }
 
     const filled = await pasteText(editor, source.markdown);
     if (!filled) {
-      updateStatus('已复制内容，但自动粘贴被 NotebookLM 拦截。请在文本框内手动粘贴。');
+      updateStatus('Content was copied, but NotebookLM blocked auto-paste. Please paste manually.');
       return false;
     }
 
     await sleep(400);
-    const titleFilledAfterPaste = fillSourceTitle(source.title || '岗位资料');
+    const titleFilledAfterPaste = fillSourceTitle(source.title || 'Job source');
     if (!titleFilledBeforePaste && !titleFilledAfterPaste) {
-      updateStatus('没有找到可填写来源名称的输入框，已把岗位名和公司名放在正文第一行。');
+      updateStatus('Could not find a source title field, so the job title and company were kept in the first line.');
     }
     await clickByText([/^insert$/i, /^import$/i, /^add source$/i, /^submit$/i, /^done$/i, /^continue$/i, /^添加来源$/, /^导入$/, /^插入$/, /^提交$/, /^完成$/, /^继续$/], 5000);
-    updateStatus('已尝试把岗位信息添加为文本来源。');
+    updateStatus('Tried to add the job info as a text source.');
     return true;
   }
 
   function pendingSources(pending) {
     if (Array.isArray(pending.sources) && pending.sources.length) return pending.sources;
-    return [{ title: pending.title || '岗位资料', markdown: pending.markdown || '' }];
+    return [{ title: pending.title || 'Job source', markdown: pending.markdown || '' }];
   }
 
   async function tryAddAllSources(pending, updateStatus) {
     const sources = pendingSources(pending);
     for (let i = 0; i < sources.length; i += 1) {
-      updateStatus(`正在添加 ${i + 1}/${sources.length}：${sources[i].title}`);
+      updateStatus(`Adding ${i + 1}/${sources.length}: ${sources[i].title}`);
       const ok = await tryAddCopiedTextSource(sources[i], updateStatus);
       if (!ok) return false;
       await sleep(1200);
     }
-    updateStatus(`已尝试添加 ${sources.length} 条岗位来源。`);
+    updateStatus(`Tried to add ${sources.length} job source(s).`);
     return true;
   }
 
   async function tryNewNotebook(pending, updateStatus) {
-    updateStatus('尝试点击新建 Notebook...');
+    updateStatus('Trying to create a new Notebook...');
     await clickByText([/create new notebook/i, /^new notebook$/i, /新建.*notebook/i, /新建笔记本/, /^新建$/], 7000);
     await sleep(2500);
     const ok = await tryAddAllSources(pending, updateStatus);

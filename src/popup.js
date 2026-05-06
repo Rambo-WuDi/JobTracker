@@ -144,7 +144,7 @@ async function loadState() {
 
   const state = defaultState();
   if (Array.isArray(data[LEGACY_JOBS_KEY]) && data[LEGACY_JOBS_KEY].length) {
-    const batch = createBatch('导入批次');
+    const batch = createBatch('Imported jobs');
     batch.jobs = data[LEGACY_JOBS_KEY].map(sanitizeJob);
     state.batches.push(batch);
     state.activeBatchId = batch.id;
@@ -179,9 +179,9 @@ async function activeTab() {
 
 async function scrapeCurrentTab() {
   const tab = await activeTab();
-  if (!tab?.id) throw new Error('没有找到当前标签页');
+  if (!tab?.id) throw new Error('No active tab found.');
   if (!/^https?:\/\//.test(tab.url || '')) {
-    throw new Error('当前页面不支持抓取，请切换到招聘网站页面。');
+    throw new Error('This page cannot be imported. Please switch to a job detail page.');
   }
 
   try {
@@ -190,7 +190,7 @@ async function scrapeCurrentTab() {
       files: ['src/extract-rules.js', 'src/content.js']
     });
   } catch (error) {
-    throw new Error(`无法注入抓取脚本：${error.message || '请刷新扩展权限'}`);
+    throw new Error(`Could not inject the importer script: ${error.message || 'please refresh extension permissions'}`);
   }
 
   try {
@@ -212,11 +212,11 @@ async function scrapeCurrentTab() {
       chrome.tabs.sendMessage(tab.id, { type: 'JOB_CLIPPER_SCRAPE' }, done)
     );
   } catch (error) {
-    throw new Error(`页面未响应抓取请求：${error.message || '请刷新页面后重试'}`);
+    throw new Error(`The page did not respond: ${error.message || 'please refresh the page and try again'}`);
   }
 
   if (!response?.ok) {
-    throw new Error(response?.error || '抓取失败');
+    throw new Error(response?.error || 'Import failed');
   }
 
   return response.job;
@@ -249,7 +249,7 @@ function jobsToMarkdown(jobs) {
 }
 
 function jobSourceTitle(job) {
-  const title = normalize(job.title) || '未命名岗位';
+  const title = normalize(job.title) || 'Untitled job';
   const company = normalizeCompany(job.company);
   return company ? `${title} - ${company}` : title;
 }
@@ -257,23 +257,23 @@ function jobSourceTitle(job) {
 function jobToSourceMarkdown(sourceJob) {
   const job = sanitizeJob(sourceJob);
   const info = [
-    job.title ? `岗位：${job.title}` : '',
-    normalizeCompany(job.company) ? `公司：${normalizeCompany(job.company)}` : '',
-    job.location ? `地点：${job.location}` : '',
-    job.salary ? `薪资：${job.salary}` : ''
+    job.title ? `Job: ${job.title}` : '',
+    normalizeCompany(job.company) ? `Company: ${normalizeCompany(job.company)}` : '',
+    job.location ? `Location: ${job.location}` : '',
+    job.salary ? `Salary: ${job.salary}` : ''
   ].filter(Boolean).join('\n');
-  const responsibilities = escapeCleanMarkdown(job.responsibilities || job.rawText || '未识别到职责正文。');
-  const requirements = escapeCleanMarkdown(job.requirements || '未识别到单独的任职要求。');
+  const responsibilities = escapeCleanMarkdown(job.responsibilities || job.rawText || 'No responsibilities found.');
+  const requirements = escapeCleanMarkdown(job.requirements || 'No separate requirements found.');
 
   return `# ${escapeMarkdown(jobSourceTitle(job))}
 
-## 岗位信息
+## Job Info
 ${info}
 
-## 岗位职责
+## Responsibilities
 ${responsibilities}
 
-## 任职要求
+## Requirements
 ${requirements}`;
 }
 
@@ -290,11 +290,20 @@ function jobsToNotebookSources(jobs) {
 function compactInfo(job) {
   const company = normalizeCompany(job.company);
   return [
-    job.title ? `岗位：${job.title}` : '',
-    company ? `公司：${company}` : '',
-    job.location ? `地点：${job.location}` : '',
-    job.salary ? `薪资：${job.salary}` : '',
+    job.title ? `Job: ${job.title}` : '',
+    company ? `Company: ${company}` : '',
+    job.location ? `Location: ${job.location}` : '',
+    job.salary ? `Salary: ${job.salary}` : '',
   ].filter(Boolean).join('\n');
+}
+
+function translateInfoLabels(text) {
+  return String(text || '')
+    .replace(/^岗位[:：]/gm, 'Job: ')
+    .replace(/^公司[:：]/gm, 'Company: ')
+    .replace(/^地点[:：]/gm, 'Location: ')
+    .replace(/^薪资[:：]/gm, 'Salary: ')
+    .replace(/^来源站点[:：]/gm, 'Source site: ');
 }
 
 function cleanCapturedText(text, maxLength = 12000) {
@@ -466,7 +475,7 @@ function removeOverlappingLines(text, textToRemove) {
 
 function sanitizeJob(job) {
   const company = normalizeCompany(job.company);
-  const jobInfo = cleanCapturedText(job.jobInfo || compactInfo(job), 1200);
+  const jobInfo = cleanCapturedText(translateInfoLabels(job.jobInfo || compactInfo(job)), 1200);
   const requirements = cleanCapturedText(
     stripLeadingSectionHeading(truncateAtStopHeading(job.requirements || ''), ['任职要求', '任职资格', '岗位要求', '职位要求', '能力要求', 'Requirements', 'Qualifications']),
     2400
@@ -689,7 +698,7 @@ function openModal({
   message = '',
   placeholder = '',
   value = '',
-  confirmText = '确定',
+  confirmText = 'OK',
   showInput = true,
   danger = false
 }) {
@@ -761,11 +770,11 @@ function isToday(isoDate) {
 function metaLine(job) {
   const title = normalize(job.title);
   const company = normalizeCompany(job.company);
-  const companyLabel = company && company !== title ? company : '公司未识别';
+  const companyLabel = company && company !== title ? company : 'Company unknown';
   const parts = [companyLabel, job.location, job.salary]
     .map((part) => normalize(part))
     .filter((part) => part && part !== title);
-  return parts.join(' · ') || job.sourceSite || '未知来源';
+  return parts.join(' · ') || job.sourceSite || 'Unknown source';
 }
 
 function metaParts(job) {
@@ -797,7 +806,7 @@ function normalize(value) {
 
 function preview(value) {
   const text = normalize(value);
-  if (!text) return '未识别到内容。';
+  if (!text) return 'No content found.';
   return text.length > 1400 ? `${text.slice(0, 1400)}...` : text;
 }
 
@@ -879,7 +888,7 @@ function render(state, options = {}) {
   els.batchCount.textContent = String(state.batches.length);
   els.todayCount.textContent = String(totalJobs.filter((job) => isToday(job.capturedAt)).length);
   els.emptyState.style.display = jobs.length ? 'none' : 'flex';
-  els.emptyText.textContent = batch ? '该批次暂无职位' : '请先新建批次';
+  els.emptyText.textContent = batch ? 'No jobs in this batch' : 'Create a batch first';
   els.listActions.hidden = !jobs.length;
   const selectedCount = jobs.filter((job) => job.selected === true).length;
   els.selectAllJobs.checked = Boolean(jobs.length && selectedCount === jobs.length);
@@ -906,20 +915,20 @@ function render(state, options = {}) {
       current.activeBatchId = item.id;
       await saveState(current);
       render(current);
-      setStatus(`已切换到批次 ${item.name}。`);
+      setStatus(`Switched to batch ${item.name}.`);
     });
 
     const close = document.createElement('button');
     close.className = 'batch-close';
     close.type = 'button';
     close.textContent = '×';
-    close.setAttribute('aria-label', `删除批次 ${item.name}`);
+    close.setAttribute('aria-label', `Delete batch ${item.name}`);
     close.addEventListener('click', async (event) => {
       event.stopPropagation();
       const confirmed = await openModal({
-        title: '删除批次',
-        message: `确定删除“${item.name}”？该批次内保存的岗位也会一起删除。`,
-        confirmText: '删除',
+        title: 'Delete batch',
+        message: `Delete "${item.name}"? Jobs saved in this batch will also be deleted.`,
+        confirmText: 'Delete',
         showInput: false,
         danger: true
       });
@@ -931,7 +940,7 @@ function render(state, options = {}) {
     edit.className = 'batch-edit';
     edit.type = 'button';
     edit.textContent = '✎';
-    edit.setAttribute('aria-label', `编辑批次 ${item.name}`);
+    edit.setAttribute('aria-label', `Edit batch ${item.name}`);
     edit.addEventListener('click', async (event) => {
       event.stopPropagation();
       await renameBatchById(item.id);
@@ -947,7 +956,7 @@ function render(state, options = {}) {
     item.dataset.jobId = job.id || '';
     item.innerHTML = `
       <div class="job-top">
-        <input class="job-select" type="checkbox" aria-label="选择该职位导出到 NotebookLM">
+        <input class="job-select" type="checkbox" aria-label="Select this job for export">
         <button class="job-summary" type="button" aria-expanded="false">
           <div>
             <h2 class="job-title"></h2>
@@ -955,25 +964,25 @@ function render(state, options = {}) {
           </div>
           <span class="chevron" aria-hidden="true">⌄</span>
         </button>
-        <button class="remove" type="button" aria-label="删除职位">×</button>
+        <button class="remove" type="button" aria-label="Delete job">×</button>
       </div>
       <div class="job-details">
         <section class="detail-block">
-          <h3>岗位信息</h3>
+          <h3>Job Info</h3>
           <p class="job-info"></p>
         </section>
         <section class="detail-block">
-          <h3>岗位职责</h3>
+          <h3>Responsibilities</h3>
           <p class="job-responsibilities"></p>
         </section>
         <section class="detail-block">
-          <h3>任职要求</h3>
+          <h3>Requirements</h3>
           <p class="job-requirements"></p>
         </section>
       </div>
     `;
 
-    item.querySelector('.job-title').textContent = job.title || '未命名岗位';
+    item.querySelector('.job-title').textContent = job.title || 'Untitled job';
     const meta = item.querySelector('.job-meta');
     metaParts(job).forEach((part) => {
       const chip = document.createElement('span');
@@ -994,7 +1003,7 @@ function render(state, options = {}) {
       target.selected = checkbox.checked;
       await saveState(current);
       render(await loadState());
-      setStatus(checkbox.checked ? '已选中该职位。' : '已取消选择该职位。');
+      setStatus(checkbox.checked ? 'Job selected.' : 'Job unselected.');
     });
     const summary = item.querySelector('.job-summary');
     summary.addEventListener('click', () => {
@@ -1010,7 +1019,7 @@ function render(state, options = {}) {
       currentBatch.jobs = currentBatch.jobs.filter((candidate) => candidate.id !== job.id);
       await saveState(current);
       render(current);
-      setStatus('已删除 1 个职位。');
+      setStatus('Deleted 1 job.');
     });
 
     els.jobs.appendChild(item);
@@ -1025,11 +1034,11 @@ async function batchWithJobs() {
   const state = await loadState();
   const batch = activeBatch(state);
   if (!batch) {
-    setStatus('请先新建批次。');
+    setStatus('Create a batch first.');
     return null;
   }
   if (!batch.jobs.length) {
-    setStatus('该批次暂无职位。');
+    setStatus('No jobs in this batch.');
     return null;
   }
   return batch;
@@ -1046,13 +1055,13 @@ function safeFilename(value) {
 }
 
 function batchDownloadFolder(batch) {
-  return safeFilename(batch.name || '批次');
+  return safeFilename(batch.name || 'batch');
 }
 
 function jobDownloadBaseName(job, index, batchName) {
-  const prefix = safeFilename(batchName || '批次');
-  const title = safeFilename(job.title || `岗位-${index + 1}`);
-  const company = safeFilename(normalizeCompany(job.company) || '公司未识别');
+  const prefix = safeFilename(batchName || 'batch');
+  const title = safeFilename(job.title || `job-${index + 1}`);
+  const company = safeFilename(normalizeCompany(job.company) || 'company-unknown');
   return `${prefix}-${String(index + 1).padStart(2, '0')}-${title}-${company}`;
 }
 
@@ -1060,7 +1069,7 @@ async function downloadBatchJobZip(batch, format) {
   const folder = batchDownloadFolder(batch);
   const jobs = selectedJobs(batch);
   if (!jobs.length) {
-    setStatus('请先勾选需要下载的岗位。');
+    setStatus('Select jobs to download first.');
     return false;
   }
   const extension = format === 'csv' ? 'csv' : 'md';
@@ -1082,7 +1091,7 @@ async function downloadBatchJobZip(batch, format) {
 async function downloadSelectedJobs(batch, format) {
   const jobs = selectedJobs(batch);
   if (!jobs.length) {
-    setStatus('请先勾选需要下载的岗位。');
+    setStatus('Select jobs to download first.');
     return false;
   }
 
@@ -1105,7 +1114,7 @@ async function deleteBatchById(batchId) {
   const state = await loadState();
   const index = state.batches.findIndex((batch) => batch.id === batchId);
   if (index < 0) {
-    setStatus('没有找到要删除的批次。');
+    setStatus('Batch not found.');
     return;
   }
 
@@ -1119,25 +1128,25 @@ async function deleteBatchById(batchId) {
 
   await saveState(state);
   render(await loadState());
-  setStatus(`已删除批次 ${removed.name}。`);
+  setStatus(`Deleted batch ${removed.name}.`);
 }
 
 async function renameBatchById(batchId) {
   const state = await loadState();
   const batch = state.batches.find((item) => item.id === batchId);
   if (!batch) {
-    setStatus('请先新建批次。');
+    setStatus('Create a batch first.');
     return;
   }
 
   const name = normalize(await openModal({
-    title: '批次重命名',
-    placeholder: '输入新的批次名称',
+    title: 'Rename batch',
+    placeholder: 'Enter a new batch name',
     value: batch.name,
-    confirmText: '保存'
+    confirmText: 'Save'
   }));
   if (!name) {
-    setStatus('已取消改名。');
+    setStatus('Rename cancelled.');
     return;
   }
 
@@ -1145,7 +1154,7 @@ async function renameBatchById(batchId) {
   batch.userCreated = true;
   await saveState(state);
   render(await loadState());
-  setStatus(`已改名为 ${name}。`);
+  setStatus(`Renamed to ${name}.`);
 }
 
 async function exportNotebookLM(mode, pendingNotebook = null) {
@@ -1154,7 +1163,7 @@ async function exportNotebookLM(mode, pendingNotebook = null) {
 
   const jobs = selectedJobs(batch);
   if (!jobs.length) {
-    setStatus('请勾选需要导出的岗位。');
+    setStatus('Select jobs to export first.');
     return;
   }
 
@@ -1183,8 +1192,8 @@ async function exportNotebookLM(mode, pendingNotebook = null) {
 
   chrome.tabs.create({ url: mode === 'existing' && pendingNotebook?.url ? pendingNotebook.url : NOTEBOOKLM_URL });
   setStatus(mode === 'new'
-    ? `正在尝试新建 NotebookLM，并逐条粘贴 ${sources.length} 个已选岗位来源。`
-    : `正在打开 ${pendingNotebook?.title || '目标 Notebook'}，随后会逐条粘贴 ${sources.length} 个已选岗位来源。`);
+    ? `Creating a new NotebookLM notebook and pasting ${sources.length} selected job source(s).`
+    : `Opening ${pendingNotebook?.title || 'the target Notebook'} and pasting ${sources.length} selected job source(s).`);
 }
 
 async function loadCachedNotebooks() {
@@ -1242,7 +1251,7 @@ async function fetchNotebookLmAuthParams() {
   const html = await response.text();
   const at = extractPageValue('SNlM0e', html);
   const bl = extractPageValue('cfb2h', html);
-  if (!at || !bl) throw new Error('没有读取到 NotebookLM 登录信息');
+  if (!at || !bl) throw new Error('Could not read NotebookLM login info.');
   return { at, bl };
 }
 
@@ -1253,7 +1262,7 @@ async function listNotebooksViaRpc() {
   url.searchParams.set('rpcids', rpcId);
   url.searchParams.set('source-path', '/');
   url.searchParams.set('bl', bl);
-  url.searchParams.set('hl', 'zh-CN');
+  url.searchParams.set('hl', 'en');
   url.searchParams.set('_reqid', String(Math.floor(Math.random() * 900000) + 100000));
   url.searchParams.set('rt', 'c');
 
@@ -1321,19 +1330,19 @@ async function chooseNotebookForExport() {
   const batch = await batchWithJobs();
   if (!batch) return;
   if (!selectedJobs(batch).length) {
-    setStatus('请勾选需要导出的岗位。');
+    setStatus('Select jobs to export first.');
     return;
   }
 
   setNotebookMenuOpen(false);
   els.notebookPickerBackdrop.hidden = false;
-  renderNotebookPicker([], '正在读取 Notebook 列表...');
+  renderNotebookPicker([], 'Loading Notebook list...');
 
   let notebooks = [];
   try {
     notebooks = await listNotebooksViaRpc();
   } catch (error) {
-    setStatus(error.message || '读取 Notebook 列表失败。');
+    setStatus(error.message || 'Failed to load Notebook list.');
   }
 
   if (!notebooks.length) {
@@ -1345,15 +1354,15 @@ async function chooseNotebookForExport() {
     return;
   }
 
-  renderNotebookPicker([], '没有读取到 Notebook 列表。请确认已登录 NotebookLM。');
+  renderNotebookPicker([], 'No Notebook list found. Make sure you are signed in to NotebookLM.');
 }
 
 async function promptCreateBatch(state, message = '') {
   const name = normalize(await openModal({
-    title: '新建批次',
+    title: 'New batch',
     message,
-    placeholder: '输入批次名称，如：AI产品经理',
-    confirmText: '创建'
+    placeholder: 'Batch name, e.g. AI Product Manager',
+    confirmText: 'Create'
   }));
   if (!name) {
     return null;
@@ -1364,7 +1373,7 @@ async function promptCreateBatch(state, message = '') {
   state.activeBatchId = batch.id;
   await saveState(state);
   render(state);
-  setStatus(`已新增批次 ${batch.name}。`);
+  setStatus(`Created batch ${batch.name}.`);
   return batch;
 }
 
@@ -1372,7 +1381,7 @@ els.addBatch.addEventListener('click', async () => {
   const state = await loadState();
   const batch = await promptCreateBatch(state);
   if (!batch) {
-    setStatus('已取消新建批次。');
+    setStatus('New batch cancelled.');
   }
 });
 
@@ -1381,23 +1390,23 @@ els.clipCurrent.addEventListener('click', async () => {
     const state = await loadState();
     let batch = activeBatch(state);
     if (!batch) {
-      batch = await promptCreateBatch(state, '请先新建批次后再导入');
+      batch = await promptCreateBatch(state, 'Create a batch before importing.');
       if (!batch) {
-        setStatus('已取消新建批次。');
+        setStatus('New batch cancelled.');
         return;
       }
     }
 
     setBusy(true);
-    setStatus('正在读取当前页面...');
+    setStatus('Reading current page...');
     const job = await scrapeCurrentTab();
     const capturedJob = sanitizeJob(job);
     batch.jobs = dedupeJobs([capturedJob, ...batch.jobs]);
     await saveState(state);
     render(state);
-    setStatus(`已抓取：${job.title || '当前岗位'}`);
+    setStatus(`Imported: ${job.title || 'current job'}`);
   } catch (error) {
-    setStatus(error.message || '抓取失败，请确认当前页是招聘详情页。');
+    setStatus(error.message || 'Import failed. Make sure the current page is a job detail page.');
   } finally {
     setBusy(false);
   }
@@ -1408,9 +1417,9 @@ els.copyMarkdown.addEventListener('click', async () => {
   if (!batch) return;
   try {
     const count = await downloadSelectedJobs(batch, 'md');
-    if (count) setStatus(els.mergeDownload.checked ? `已合并下载 ${count} 个已选岗位 MD。` : `已打包 ${count} 个已选岗位 MD。`);
+    if (count) setStatus(els.mergeDownload.checked ? `Downloaded ${count} selected job(s) as one MD file.` : `Downloaded ${count} selected job(s) as an MD zip.`);
   } catch (error) {
-    setStatus(error.message || '生成 MD 文件失败。');
+    setStatus(error.message || 'Failed to generate MD file.');
   }
 });
 
@@ -1419,9 +1428,9 @@ els.downloadCsv.addEventListener('click', async () => {
   if (!batch) return;
   try {
     const count = await downloadSelectedJobs(batch, 'csv');
-    if (count) setStatus(els.mergeDownload.checked ? `已合并下载 ${count} 个已选岗位 CSV。` : `已打包 ${count} 个已选岗位 CSV。`);
+    if (count) setStatus(els.mergeDownload.checked ? `Downloaded ${count} selected job(s) as one CSV file.` : `Downloaded ${count} selected job(s) as a CSV zip.`);
   } catch (error) {
-    setStatus(error.message || '生成 CSV 文件失败。');
+    setStatus(error.message || 'Failed to generate CSV file.');
   }
 });
 
@@ -1435,24 +1444,24 @@ els.selectAllJobs.addEventListener('change', async () => {
   }));
   await saveState(state);
   render(await loadState());
-  setStatus(els.selectAllJobs.checked ? '已全选当前批次岗位。' : '已取消全选。');
+  setStatus(els.selectAllJobs.checked ? 'Selected all jobs in this batch.' : 'Selection cleared.');
 });
 
 els.clearBatch.addEventListener('click', async () => {
   const state = await loadState();
   const batch = activeBatch(state);
   if (!batch) {
-    setStatus('请先新建批次。');
+    setStatus('Create a batch first.');
     return;
   }
   if (!batch.jobs.length) {
-    setStatus('该批次暂无 JD。');
+    setStatus('No JD in this batch.');
     return;
   }
   const confirmed = await openModal({
-    title: '清空',
-    message: `确定清空“${batch.name}”中的 ${batch.jobs.length} 个职位？操作无法恢复。`,
-    confirmText: '清空',
+    title: 'Clear',
+    message: `Clear ${batch.jobs.length} job(s) from "${batch.name}"? This cannot be undone.`,
+    confirmText: 'Clear',
     showInput: false,
     danger: true
   });
@@ -1462,7 +1471,7 @@ els.clearBatch.addEventListener('click', async () => {
   batch.jobs = [];
   await saveState(state);
   render(state);
-  setStatus(`已清空批次 ${batch.name}。`);
+  setStatus(`Cleared batch ${batch.name}.`);
 });
 
 els.exportNotebookLM.addEventListener('click', () => {
