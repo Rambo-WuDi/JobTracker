@@ -696,7 +696,7 @@ h1 {
   font-size: 13px;
   font-weight: 900;
   height: 22px;
-  margin: -2px -4px 0 0;
+  margin: 0;
   min-width: 22px;
   padding: 0;
 }
@@ -741,6 +741,43 @@ h1 {
   line-height: 1.7;
   margin: 0;
   white-space: pre-wrap;
+}
+
+.job-info-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.job-info-line {
+  align-items: start;
+  color: var(--subtle);
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  line-height: 1.7;
+}
+
+.job-info-label {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.job-info-value {
+  min-height: 20px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.editable-detail {
+  border-radius: 5px;
+  outline: none;
+  padding: 2px 4px;
+}
+
+.editable-detail:focus {
+  background: var(--panel);
+  box-shadow: 0 0 0 2px var(--amber-glow);
 }
 
 @keyframes jobExit {
@@ -1202,4 +1239,5 @@ h1 {
   .batch-modal {
     padding: 20px;
   }
+
 }

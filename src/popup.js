@@ -167,7 +167,7 @@ function allJobs(state) {
 }
 
 function selectedJobs(batch) {
-  return batch.jobs.map(sanitizeJob).filter((job) => job.selected !== false);
+  return batch.jobs.map(sanitizeJob).filter((job) => job.selected === true);
 }
 
 async function activeTab() {
@@ -965,20 +965,37 @@ function render(state, options = {}) {
           </div>
           <span class="chevron" aria-hidden="true">⌄</span>
         </button>
-        <button class="remove" type="button" aria-label="Delete job">×</button>
+        <button class="remove" type="button" aria-label="Delete job" title="Delete job">×</button>
       </div>
       <div class="job-details">
         <section class="detail-block">
           <h3>Job Info</h3>
-          <p class="job-info"></p>
+          <div class="job-info-lines">
+            <div class="job-info-line">
+              <span class="job-info-label">Job:</span>
+              <span class="editable-detail job-info-value" data-field="title" contenteditable="true" spellcheck="false"></span>
+            </div>
+            <div class="job-info-line">
+              <span class="job-info-label">Company:</span>
+              <span class="editable-detail job-info-value" data-field="company" contenteditable="true" spellcheck="false"></span>
+            </div>
+            <div class="job-info-line">
+              <span class="job-info-label">Location:</span>
+              <span class="editable-detail job-info-value" data-field="location" contenteditable="true" spellcheck="false"></span>
+            </div>
+            <div class="job-info-line">
+              <span class="job-info-label">Salary:</span>
+              <span class="editable-detail job-info-value" data-field="salary" contenteditable="true" spellcheck="false"></span>
+            </div>
+          </div>
         </section>
         <section class="detail-block">
           <h3>Responsibilities</h3>
-          <p class="job-responsibilities"></p>
+          <p class="editable-detail job-responsibilities" data-field="responsibilities" contenteditable="true" spellcheck="false"></p>
         </section>
         <section class="detail-block">
           <h3>Requirements</h3>
-          <p class="job-requirements"></p>
+          <p class="editable-detail job-requirements" data-field="requirements" contenteditable="true" spellcheck="false"></p>
         </section>
       </div>
     `;
@@ -990,9 +1007,14 @@ function render(state, options = {}) {
       chip.textContent = part;
       meta.appendChild(chip);
     });
-    item.querySelector('.job-info').textContent = preview(job.jobInfo || compactInfo(job));
+    fillJobInfoValues(item, job);
     item.querySelector('.job-responsibilities').textContent = preview(job.responsibilities || job.rawText);
     item.querySelector('.job-requirements').textContent = preview(job.requirements);
+    item.querySelectorAll('.editable-detail').forEach((control) => {
+      control.addEventListener('blur', async () => {
+        await saveInlineJobField(job.id, control.dataset.field, control.innerText, item);
+      });
+    });
     const checkbox = item.querySelector('.job-select');
     checkbox.checked = job.selected !== false;
     checkbox.addEventListener('change', async () => {
@@ -1024,6 +1046,10 @@ function render(state, options = {}) {
     });
 
     els.jobs.appendChild(item);
+    if (options.expandedJobId && job.id === options.expandedJobId) {
+      item.classList.add('expanded');
+      summary.setAttribute('aria-expanded', 'true');
+    }
   }
 }
 
@@ -1158,31 +1184,91 @@ async function renameBatchById(batchId) {
   setStatus(`Renamed to ${name}.`);
 }
 
+async function saveInlineJobField(jobId, field, value, item) {
+  const state = await loadState();
+  const batch = activeBatch(state);
+  if (!batch) return;
+
+  const job = batch.jobs.find((candidate) => candidate.id === jobId);
+  if (!job) {
+    setStatus('Job not found.');
+    return;
+  }
+
+  const normalizedValue = normalize(value);
+  if (normalize(job[field]) === normalizedValue) return;
+
+  job[field] = normalizedValue;
+  if (isJobInfoField(field)) {
+    job.jobInfo = compactInfo(job);
+  }
+  await saveState(state);
+
+  const updated = sanitizeJob(job);
+  if (isJobInfoField(field)) {
+    item.querySelector('.job-title').textContent = updated.title || 'Untitled job';
+    renderMetaParts(item.querySelector('.job-meta'), updated);
+    fillJobInfoValues(item, updated);
+  }
+  setStatus('Job updated.');
+}
+
+function isJobInfoField(field) {
+  return ['title', 'company', 'location', 'salary'].includes(field);
+}
+
+function fillJobInfoValues(item, job) {
+  const values = {
+    title: job.title || '',
+    company: normalizeCompany(job.company),
+    location: job.location || '',
+    salary: job.salary || ''
+  };
+
+  item.querySelectorAll('.job-info-value').forEach((control) => {
+    const field = control.dataset.field;
+    control.textContent = values[field] || '';
+  });
+}
+
+function renderMetaParts(container, job) {
+  container.innerHTML = '';
+  metaParts(job).forEach((part) => {
+    const chip = document.createElement('span');
+    chip.textContent = part;
+    container.appendChild(chip);
+  });
+}
+
+async function selectedJobsForExport(batch) {
+  const jobs = selectedJobs(batch);
+  if (jobs.length) return jobs;
+
+  setStatus('Select at least one job before exporting.');
+  await openModal({
+    title: 'No jobs selected',
+    message: 'Select at least one job before exporting to NotebookLM.',
+    confirmText: 'OK',
+    showInput: false
+  });
+  return null;
+}
+
 async function exportNotebookLM(mode, pendingNotebook = null) {
   const batch = await batchWithJobs();
   if (!batch) return;
 
-  const jobs = selectedJobs(batch);
-  if (!jobs.length) {
-    setStatus('Select jobs to export first.');
-    return;
-  }
+  const jobs = await selectedJobsForExport(batch);
+  if (!jobs) return;
 
   const sources = jobsToNotebookSources(jobs);
-  const combinedMarkdown = sources.map((source) => source.markdown).join('\n\n---\n\n');
-
-  try {
-    await navigator.clipboard.writeText(combinedMarkdown);
-  } catch (_error) {
-    // Clipboard may be blocked in some extension contexts.
-  }
+  setStatus(`Preparing ${sources.length} selected job source(s) for NotebookLM...`);
 
   await chromeCall((done) =>
     chrome.storage.local.set({
       [NOTEBOOKLM_PENDING_KEY]: {
         mode,
         title: batch.name,
-        markdown: combinedMarkdown,
         sources,
         sourceType: 'text',
         targetNotebook: pendingNotebook,
@@ -1330,10 +1416,8 @@ function renderNotebookPicker(notebooks, message) {
 async function chooseNotebookForExport() {
   const batch = await batchWithJobs();
   if (!batch) return;
-  if (!selectedJobs(batch).length) {
-    setStatus('Select jobs to export first.');
-    return;
-  }
+  const jobs = await selectedJobsForExport(batch);
+  if (!jobs) return;
 
   setNotebookMenuOpen(false);
   els.notebookPickerBackdrop.hidden = false;
@@ -1404,7 +1488,7 @@ els.clipCurrent.addEventListener('click', async () => {
     const capturedJob = sanitizeJob(job);
     batch.jobs = dedupeJobs([capturedJob, ...batch.jobs]);
     await saveState(state);
-    render(state);
+    render(state, { expandedJobId: capturedJob.id });
     setStatus(`Imported: ${job.title || 'current job'}`);
   } catch (error) {
     setStatus(error.message || 'Import failed. Make sure the current page is a job detail page.');
@@ -1481,11 +1565,19 @@ els.exportNotebookLM.addEventListener('click', () => {
 
 els.exportNewNotebook.addEventListener('click', async () => {
   setNotebookMenuOpen(false);
-  await exportNotebookLM('new');
+  try {
+    await exportNotebookLM('new');
+  } catch (error) {
+    setStatus(error.message || 'Failed to start NotebookLM export.');
+  }
 });
 
 els.exportExistingNotebook.addEventListener('click', async () => {
-  await chooseNotebookForExport();
+  try {
+    await chooseNotebookForExport();
+  } catch (error) {
+    setStatus(error.message || 'Failed to load Notebook list.');
+  }
 });
 
 els.batchModal.addEventListener('submit', (event) => {
