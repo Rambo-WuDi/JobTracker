@@ -175,13 +175,32 @@ https://github.com/Rambo-WuDi/JobTracker
 
 ### 方式二：手动安装
 
-1. 打开 `chrome://extensions/`。
-2. 开启右上角的 **开发者模式**。
-3. 点击 **加载已解压的扩展程序**。
-4. 选择项目文件夹。
-5. 打开招聘详情页。
-6. 点击浏览器工具栏中的 JobTracker 图标。
-7. Chrome 会在侧边栏中打开 JobTracker。
+#### 第一步：从 GitHub 下载 JobTracker
+
+1. 打开 JobTracker 的 GitHub 仓库：
+
+```text
+https://github.com/Rambo-WuDi/JobTracker
+```
+
+2. 点击绿色的 **Code** 按钮。
+3. 点击 **Download ZIP**。
+4. 下载完成后，解压这个 ZIP 文件。
+5. 解压后会得到一个类似 `JobTracker-main` 的文件夹。
+
+#### 第二步：在 Chrome 中加载插件
+
+1. 打开 Chrome。
+2. 在地址栏输入 `chrome://extensions/` 并回车。
+3. 开启右上角的 **开发者模式**。
+4. 点击 **加载已解压的扩展程序**。
+5. 选择刚刚解压出来的 `JobTracker-main` 文件夹。
+6. 加载成功后，JobTracker 会出现在 Chrome 扩展程序列表中。
+7. 打开一个招聘详情页。
+8. 点击浏览器工具栏中的 JobTracker 图标。
+9. Chrome 会在侧边栏中打开 JobTracker。
+
+如果 Chrome 提示错误，请确认你选择的是解压后的项目文件夹，并且这个文件夹里面能看到 `manifest.json` 文件。
 
 ---
 

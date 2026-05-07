@@ -176,13 +176,32 @@ https://github.com/Rambo-WuDi/JobTracker
 
 ### Option 2: Manual installation
 
-1. Open `chrome://extensions/`.
-2. Turn on **Developer mode**.
-3. Click **Load unpacked**.
-4. Select the project folder.
-5. Open a recruiting job detail page.
-6. Click the JobTracker icon in the browser toolbar.
-7. JobTracker will open in the Chrome side panel.
+#### Step 1: Download JobTracker from GitHub
+
+1. Open the JobTracker GitHub repository:
+
+```text
+https://github.com/Rambo-WuDi/JobTracker
+```
+
+2. Click the green **Code** button.
+3. Click **Download ZIP**.
+4. After the ZIP file is downloaded, unzip it.
+5. You should get a folder named something like `JobTracker-main`.
+
+#### Step 2: Load JobTracker in Chrome
+
+1. Open Chrome.
+2. Go to `chrome://extensions/`.
+3. Turn on **Developer mode** in the top-right corner.
+4. Click **Load unpacked**.
+5. Select the unzipped `JobTracker-main` folder.
+6. JobTracker should now appear in your Chrome extensions list.
+7. Open a recruiting job detail page.
+8. Click the JobTracker icon in the browser toolbar.
+9. JobTracker will open in the Chrome side panel.
+
+If Chrome shows an error, make sure you selected the unzipped folder that contains `manifest.json`.
 
 ---
 
